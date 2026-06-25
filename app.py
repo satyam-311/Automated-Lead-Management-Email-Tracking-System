@@ -4,6 +4,7 @@
 import re
 import os
 import logging
+import html as _html
 from datetime import datetime
 
 import pandas as pd
@@ -745,40 +746,35 @@ with tab2:
             av_col = _AVATAR_COLORS[i % len(_AVATAR_COLORS)]
             bg_pri, tx_pri = PRIORITY_COLORS.get(lead.get("priority", "Low"), ("#E2E8F0", "#475569"))
             icon = CAT_ICONS.get(lead.get("category", "General Inquiry"), "💬")
-            ago  = _time_ago(lead.get("submitted_at", ""))
+            ago = _time_ago(lead.get("submitted_at", ""))
             status = "✅" if lead.get("email_sent") else "⏳"
-            feed_items.append(f"""
-            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;
-                        border-bottom:1px solid #F1F5F9;">
-                <div style="width:38px;height:38px;border-radius:50%;background:{av_col};
-                            display:flex;align-items:center;justify-content:center;
-                            color:white;font-weight:700;font-size:12px;flex-shrink:0;">
-                    {initials}
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <p style="margin:0;font-size:0.84rem;font-weight:600;color:#0F172A;
-                               overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                        {lead['name']} &mdash; {icon} {lead.get('category','?')}
-                    </p>
-                    <p style="margin:2px 0 0;font-size:0.73rem;color:#94A3B8;">
-                        {ago} &nbsp;·&nbsp; {lead.get('email','')} &nbsp;{status}
-                    </p>
-                </div>
-                <span style="background:{bg_pri};color:{tx_pri};padding:3px 10px;
-                             border-radius:20px;font-size:0.68rem;font-weight:700;
-                             white-space:nowrap;flex-shrink:0;">
-                    {lead.get('priority','?')}
-                </span>
-            </div>
-            """)
+            safe_name     = _html.escape(str(lead.get("name", "")))
+            safe_email    = _html.escape(str(lead.get("email", "")))
+            safe_category = _html.escape(str(lead.get("category", "?")))
+            safe_priority = _html.escape(str(lead.get("priority", "?")))
+            feed_items.append(
+                f'<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F1F5F9;">'
+                f'<div style="width:38px;height:38px;border-radius:50%;background:{av_col};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;flex-shrink:0;">{initials}</div>'
+                f'<div style="flex:1;min-width:0;">'
+                f'<p style="margin:0;font-size:0.84rem;font-weight:600;color:#0F172A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{safe_name} &mdash; {icon} {safe_category}</p>'
+                f'<p style="margin:2px 0 0;font-size:0.73rem;color:#94A3B8;">{ago} &nbsp;&middot;&nbsp; {safe_email} &nbsp;{status}</p>'
+                f'</div>'
+                f'<span style="background:{bg_pri};color:{tx_pri};padding:3px 10px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;flex-shrink:0;">{safe_priority}</span>'
+                f'</div>'
+            )
 
-        st.markdown(f"""
-        <div class="w-card" style="padding:1.2rem 1.5rem;">
-            <div class="w-card-title">Last {len(recent)} Leads</div>
-            {''.join(feed_items) if feed_items
-              else '<p style="color:#94A3B8;font-size:0.85rem;margin:0;">No activity yet.</p>'}
-        </div>
-        """, unsafe_allow_html=True)
+        if feed_items:
+            feed_content = "".join(feed_items)
+        else:
+            feed_content = '<p style="color:#94A3B8;font-size:0.85rem;margin:0;">No activity yet.</p>'
+
+        st.markdown(
+            f'<div class="w-card" style="padding:1.2rem 1.5rem;">'
+            f'<div class="w-card-title">Last {len(recent)} Leads</div>'
+            f'{feed_content}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
