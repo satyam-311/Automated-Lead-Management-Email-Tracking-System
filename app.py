@@ -698,7 +698,7 @@ with tab2:
                 color_discrete_map={"High": "#DC2626", "Medium": "#D97706", "Low": "#059669"},
                 template="plotly_white",
             )
-            fig.update_layout(title="Priority Breakdown", showlegend=False, **_chart_base())
+            fig.update_layout(title="Priority Breakdown", **_chart_base())
             st.plotly_chart(fig, use_container_width=True)
 
         # Row 3
