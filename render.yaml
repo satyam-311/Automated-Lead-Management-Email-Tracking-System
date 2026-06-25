@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  render.yaml — LeadFlow deployment on Render.com
+#
+#  This file defines TWO services:
+#    1. leadflow-dashboard   → Streamlit web app  (main UI)
+#    2. leadflow-tracker     → Flask tracking server (pixel + click)
+#
+#  Deploy steps:
+#    1. Push this repo to GitHub.
+#    2. Connect the repo in the Render dashboard → "New Blueprint Instance".
+#    3. Set the environment variables marked "sync: false" in each service.
+#    4. After the tracker deploys, copy its URL and set it as TRACKER_BASE
+#       in the dashboard service's env vars.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 1. Streamlit Dashboard ──────────────────────────────────────────────────
+  - type: web
+    name: leadflow-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+      --server.enableCORS false
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: GMAIL_USER
+        sync: false          # set manually in Render dashboard
+      - key: GMAIL_PASSWORD
+        sync: false          # set manually in Render dashboard
+      - key: TRACKER_BASE
+        sync: false          # paste leadflow-tracker.onrender.com URL here after it deploys
+      - key: CLICK_REDIRECT_URL
+        sync: false          # e.g. https://yourwebsite.com
+
+  # ── 2. Flask Email Tracker ──────────────────────────────────────────────────
+  - type: web
+    name: leadflow-tracker
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn tracker:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: CLICK_REDIRECT_URL
+        sync: false          # URL to redirect after click tracking
