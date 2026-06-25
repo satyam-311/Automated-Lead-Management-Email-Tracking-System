@@ -1,50 +1,93 @@
-import sqlite3
+import os
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = "leads.db"
+# ── Backend detection ─────────────────────────────────────────────────────────
+# If DATABASE_URL is set → PostgreSQL (Supabase / Render PG)
+# Otherwise             → SQLite (local development)
+_DATABASE_URL = os.getenv("DATABASE_URL")
+_USE_PG = bool(_DATABASE_URL)
+
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
+    _PH = "%s"
+else:
+    import sqlite3
+    _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "leads.db")
+    _PH = "?"
 
 
 def _connect():
-    conn = sqlite3.connect(DB_PATH)
+    if _USE_PG:
+        return psycopg2.connect(
+            _DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+    conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _q(sql: str) -> str:
+    """Swap ? → %s for PostgreSQL."""
+    return sql.replace("?", _PH)
 
 
 def init_db():
     conn = _connect()
     try:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS leads (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                name          TEXT    NOT NULL,
-                email         TEXT    NOT NULL,
-                phone         TEXT    NOT NULL,
-                company       TEXT,
-                requirement   TEXT,
-                submitted_at  TEXT,
-                email_sent    INTEGER DEFAULT 0,
-                email_opened  INTEGER DEFAULT 0,
-                link_clicked  INTEGER DEFAULT 0,
-                category      TEXT    DEFAULT "General Inquiry",
-                priority      TEXT    DEFAULT "Medium",
-                confidence    INTEGER DEFAULT 0
-            )
-        ''')
-        # Non-destructive migration: add columns added after initial release
-        for col, definition in [
-            ("category",   'TEXT DEFAULT "General Inquiry"'),
-            ("priority",   'TEXT DEFAULT "Medium"'),
-            ("confidence", 'INTEGER DEFAULT 0'),
-        ]:
-            try:
-                conn.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
-            except sqlite3.OperationalError:
-                pass  # column already exists
+        c = conn.cursor()
+        if _USE_PG:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS leads (
+                    id            SERIAL          PRIMARY KEY,
+                    name          TEXT            NOT NULL,
+                    email         TEXT            NOT NULL,
+                    phone         TEXT            NOT NULL,
+                    company       TEXT,
+                    requirement   TEXT,
+                    submitted_at  TEXT,
+                    email_sent    INTEGER         DEFAULT 0,
+                    email_opened  INTEGER         DEFAULT 0,
+                    link_clicked  INTEGER         DEFAULT 0,
+                    category      TEXT            DEFAULT 'General Inquiry',
+                    priority      TEXT            DEFAULT 'Medium',
+                    confidence    INTEGER         DEFAULT 0
+                )
+            """)
+        else:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS leads (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name          TEXT    NOT NULL,
+                    email         TEXT    NOT NULL,
+                    phone         TEXT    NOT NULL,
+                    company       TEXT,
+                    requirement   TEXT,
+                    submitted_at  TEXT,
+                    email_sent    INTEGER DEFAULT 0,
+                    email_opened  INTEGER DEFAULT 0,
+                    link_clicked  INTEGER DEFAULT 0,
+                    category      TEXT    DEFAULT 'General Inquiry',
+                    priority      TEXT    DEFAULT 'Medium',
+                    confidence    INTEGER DEFAULT 0
+                )
+            """)
+            # Non-destructive column migrations for older schemas
+            for col, defn in [
+                ("category",   "TEXT DEFAULT 'General Inquiry'"),
+                ("priority",   "TEXT DEFAULT 'Medium'"),
+                ("confidence", "INTEGER DEFAULT 0"),
+            ]:
+                try:
+                    c.execute(f"ALTER TABLE leads ADD COLUMN {col} {defn}")
+                except sqlite3.OperationalError:
+                    pass  # column already exists
         conn.commit()
-        logger.info("Database initialised at %s", DB_PATH)
+        logger.info("Database ready (backend=%s)", "PostgreSQL" if _USE_PG else "SQLite")
     finally:
         conn.close()
 
@@ -53,61 +96,61 @@ def insert_lead(name, email, phone, company, requirement,
                 category="General Inquiry", priority="Medium", confidence=0):
     conn = _connect()
     try:
-        cursor = conn.execute(
-            '''
-            INSERT INTO leads
-                (name, email, phone, company, requirement, submitted_at,
-                 category, priority, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (name, email, phone, company, requirement,
-             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-             category, priority, confidence)
-        )
+        c = conn.cursor()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if _USE_PG:
+            c.execute(
+                "INSERT INTO leads "
+                "(name,email,phone,company,requirement,submitted_at,category,priority,confidence) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (name, email, phone, company, requirement, now, category, priority, confidence),
+            )
+            lead_id = c.fetchone()["id"]
+        else:
+            c.execute(
+                "INSERT INTO leads "
+                "(name,email,phone,company,requirement,submitted_at,category,priority,confidence) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (name, email, phone, company, requirement, now, category, priority, confidence),
+            )
+            lead_id = c.lastrowid
         conn.commit()
-        lead_id = cursor.lastrowid
-        logger.info("Lead inserted: id=%d category=%s priority=%s", lead_id, category, priority)
+        logger.info("Lead inserted: id=%s category=%s priority=%s", lead_id, category, priority)
         return lead_id
     finally:
         conn.close()
 
 
-def mark_email_sent(lead_id):
+def _update(sql: str, params: tuple) -> None:
     conn = _connect()
     try:
-        conn.execute("UPDATE leads SET email_sent=1 WHERE id=?", (lead_id,))
+        c = conn.cursor()
+        c.execute(_q(sql), params)
         conn.commit()
     finally:
         conn.close()
+
+
+def mark_email_sent(lead_id):
+    _update("UPDATE leads SET email_sent=1 WHERE id=?", (lead_id,))
 
 
 def mark_email_opened(lead_id):
-    conn = _connect()
-    try:
-        conn.execute("UPDATE leads SET email_opened=1 WHERE id=?", (lead_id,))
-        conn.commit()
-        logger.info("Email opened: lead_id=%d", lead_id)
-    finally:
-        conn.close()
+    _update("UPDATE leads SET email_opened=1 WHERE id=?", (lead_id,))
+    logger.info("Email opened: lead_id=%s", lead_id)
 
 
 def mark_link_clicked(lead_id):
-    conn = _connect()
-    try:
-        conn.execute("UPDATE leads SET link_clicked=1 WHERE id=?", (lead_id,))
-        conn.commit()
-        logger.info("Link clicked: lead_id=%d", lead_id)
-    finally:
-        conn.close()
+    _update("UPDATE leads SET link_clicked=1 WHERE id=?", (lead_id,))
+    logger.info("Link clicked: lead_id=%s", lead_id)
 
 
 def get_all_leads():
     conn = _connect()
     try:
-        rows = conn.execute(
-            "SELECT * FROM leads ORDER BY submitted_at DESC"
-        ).fetchall()
-        return [dict(r) for r in rows]
+        c = conn.cursor()
+        c.execute("SELECT * FROM leads ORDER BY submitted_at DESC")
+        return [dict(r) for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -116,10 +159,14 @@ def get_stats():
     conn = _connect()
     try:
         c = conn.cursor()
-        total   = c.execute("SELECT COUNT(*)                       FROM leads").fetchone()[0]
-        sent    = c.execute("SELECT COUNT(*) FROM leads WHERE email_sent=1").fetchone()[0]
-        opened  = c.execute("SELECT COUNT(*) FROM leads WHERE email_opened=1").fetchone()[0]
-        clicked = c.execute("SELECT COUNT(*) FROM leads WHERE link_clicked=1").fetchone()[0]
+        c.execute("SELECT COUNT(*) AS n FROM leads")
+        total = c.fetchone()["n"]
+        c.execute("SELECT COUNT(*) AS n FROM leads WHERE email_sent=1")
+        sent = c.fetchone()["n"]
+        c.execute("SELECT COUNT(*) AS n FROM leads WHERE email_opened=1")
+        opened = c.fetchone()["n"]
+        c.execute("SELECT COUNT(*) AS n FROM leads WHERE link_clicked=1")
+        clicked = c.fetchone()["n"]
         return {"total": total, "sent": sent, "opened": opened, "clicked": clicked}
     finally:
         conn.close()
