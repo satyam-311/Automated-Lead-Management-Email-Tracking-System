@@ -601,11 +601,14 @@ with tab1:
                 )
 
             if success:
-                mark_email_sent(lead_id)
-                st.success(f"✅  Lead **#{lead_id}** saved and welcome email delivered to **{email}**!")
+                db_ok = mark_email_sent(lead_id)
+                if db_ok:
+                    st.success(f"✅  Lead **#{lead_id}** saved and welcome email delivered to **{email}**!")
+                else:
+                    st.success(f"✅  Lead **#{lead_id}** saved and email sent — but status update failed (check DB logs).")
             else:
                 st.warning(
-                    f"⚠️  Lead **#{lead_id}** saved. Email failed — check SMTP credentials in `.env`."
+                    f"⚠️  Lead **#{lead_id}** saved. Email failed — check RESEND_API_KEY in Render env vars."
                 )
 
 
@@ -840,9 +843,9 @@ with tab3:
 
         # ── Format for display ────────────────────────────────────────────────
         disp = filtered.copy()
-        disp["email_sent"]   = disp["email_sent"].map({1: "✅ Sent",   0: "⏳ Pending"})
-        disp["email_opened"] = disp["email_opened"].map({1: "✅ Opened", 0: "—"})
-        disp["link_clicked"] = disp["link_clicked"].map({1: "✅ Clicked", 0: "—"})
+        disp["email_sent"]   = disp["email_sent"].apply(lambda x: "✅ Sent"    if x else "⏳ Pending")
+        disp["email_opened"] = disp["email_opened"].apply(lambda x: "✅ Opened" if x else "—")
+        disp["link_clicked"] = disp["link_clicked"].apply(lambda x: "✅ Clicked" if x else "—")
 
         col_order = [
             "id", "name", "email", "phone", "company",

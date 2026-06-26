@@ -121,28 +121,39 @@ def insert_lead(name, email, phone, company, requirement,
         conn.close()
 
 
-def _update(sql: str, params: tuple) -> None:
+def _update(sql: str, params: tuple) -> bool:
     conn = _connect()
     try:
         c = conn.cursor()
         c.execute(_q(sql), params)
+        affected = c.rowcount
         conn.commit()
+        if affected == 0:
+            logger.warning("_update matched 0 rows: sql=%r params=%r", sql, params)
+        return affected > 0
     finally:
         conn.close()
 
 
-def mark_email_sent(lead_id):
-    _update("UPDATE leads SET email_sent=1 WHERE id=?", (lead_id,))
+def mark_email_sent(lead_id) -> bool:
+    ok = _update("UPDATE leads SET email_sent=1 WHERE id=?", (lead_id,))
+    if ok:
+        logger.info("email_sent marked: lead_id=%s", lead_id)
+    else:
+        logger.error("mark_email_sent updated 0 rows for lead_id=%s", lead_id)
+    return ok
 
 
-def mark_email_opened(lead_id):
-    _update("UPDATE leads SET email_opened=1 WHERE id=?", (lead_id,))
-    logger.info("Email opened: lead_id=%s", lead_id)
+def mark_email_opened(lead_id) -> bool:
+    ok = _update("UPDATE leads SET email_opened=1 WHERE id=?", (lead_id,))
+    logger.info("Email opened: lead_id=%s rows_affected=%s", lead_id, ok)
+    return ok
 
 
-def mark_link_clicked(lead_id):
-    _update("UPDATE leads SET link_clicked=1 WHERE id=?", (lead_id,))
-    logger.info("Link clicked: lead_id=%s", lead_id)
+def mark_link_clicked(lead_id) -> bool:
+    ok = _update("UPDATE leads SET link_clicked=1 WHERE id=?", (lead_id,))
+    logger.info("Link clicked: lead_id=%s rows_affected=%s", lead_id, ok)
+    return ok
 
 
 def get_all_leads():
