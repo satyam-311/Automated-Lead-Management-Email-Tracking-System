@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Page Config (must be the FIRST Streamlit call) ────────────────────────────
 st.set_page_config(
-    page_title="LeadFlow — Lead Management System",
+    page_title="LeadFlow CRM",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -59,7 +59,7 @@ header    { visibility: hidden; }
 
 /* ── Hero ── */
 .hero {
-    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 55%, #DB2777 100%);
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5282 55%, #f97316 100%);
     padding: 2.2rem 2.5rem 1.8rem 2.5rem;
     border-radius: 20px;
     margin-bottom: 1.4rem;
@@ -122,20 +122,20 @@ header    { visibility: hidden; }
 .badge-high   { background: #FEE2E2; color: #DC2626; }
 .badge-medium { background: #FEF3C7; color: #D97706; }
 .badge-low    { background: #D1FAE5; color: #059669; }
-.badge-cat    { background: #EDE9FE; color: #6D28D9; }
+.badge-cat    { background: #e6edf5; color: #1e3a5f; }
 
 /* ── AI Insight box ── */
 .ai-box {
-    background: linear-gradient(135deg, #EDE9FE 0%, #FCE7F3 100%);
-    border: 1px solid #DDD6FE; border-radius: 14px;
+    background: linear-gradient(135deg, #e6edf5 0%, #fef3e2 100%);
+    border: 1px solid #c7d9ec; border-radius: 14px;
     padding: 1.15rem 1.5rem; margin: 0.85rem 0;
 }
 .ai-box-title {
-    font-size: 0.72rem; font-weight: 800; color: #6D28D9;
+    font-size: 0.72rem; font-weight: 800; color: #1e3a5f;
     text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 0.55rem;
 }
-.conf-bg { background: rgba(109,40,217,0.14); border-radius: 20px; height: 7px; overflow: hidden; }
-.conf-fill { height: 7px; border-radius: 20px; background: linear-gradient(90deg, #4F46E5, #7C3AED, #DB2777); }
+.conf-bg { background: rgba(30,58,95,0.14); border-radius: 20px; height: 7px; overflow: hidden; }
+.conf-fill { height: 7px; border-radius: 20px; background: linear-gradient(90deg, #1e3a5f, #2d5282, #f97316); }
 
 /* ── Section header ── */
 .sec-hdr {
@@ -171,7 +171,7 @@ header    { visibility: hidden; }
     color: #64748B !important; transition: all 0.14s !important;
 }
 .stTabs [aria-selected="true"] {
-    background: #4F46E5 !important; color: white !important; font-weight: 600 !important;
+    background: #1e3a5f !important; color: white !important; font-weight: 600 !important;
 }
 
 /* ── Buttons ── */
@@ -199,6 +199,8 @@ header    { visibility: hidden; }
     font-size: 0.75rem; color: #94A3B8;
     border-top: 1px solid #E2E8F0; margin-top: 2rem;
 }
+.app-footer a { color: #f97316; text-decoration: none; margin: 0 2px; }
+.app-footer a:hover { text-decoration: underline; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -227,12 +229,12 @@ CAT_ICONS = {
 }
 
 KPI_META = [
-    ("Total Leads",   "total",   "👥",  "#4F46E5", "All captured leads"),
-    ("Emails Sent",   "sent",    "📧",  "#7C3AED", "Automated sends"),
-    ("Emails Opened", "opened",  "📬",  "#0EA5E9", "Unique opens tracked"),
-    ("Open Rate",     "open_rate","📈", "#10B981", "Opens ÷ sends"),
-    ("Link Clicks",   "clicked", "🔗",  "#F59E0B", "CTA link clicks"),
-    ("Click Rate",    "click_rate","⚡","#EC4899", "Clicks ÷ sends"),
+    ("Total Leads",    "total",      "👥",  "#1e3a5f", "All captured leads"),
+    ("Emails Sent",    "sent",       "📧",  "#f97316", "Automated sends"),
+    ("Emails Opened",  "opened",     "📬",  "#0EA5E9", "Unique opens tracked"),
+    ("Open Rate",      "open_rate",  "📈",  "#10B981", "Opens ÷ sends"),
+    ("Link Clicks",    "clicked",    "🔗",  "#f97316", "CTA link clicks"),
+    ("Click Rate",     "click_rate", "⚡",  "#1e3a5f", "Clicks ÷ sends"),
 ]
 
 
@@ -360,20 +362,20 @@ with st.sidebar:
     st.markdown("""
     <div style="padding:0.5rem 0 1.5rem 0; border-bottom:1px solid #1E293B;">
         <div style="font-size:1.5rem; font-weight:800; color:#F8FAFC; letter-spacing:-0.5px;">
-            ⚡ LeadFlow
+            ⚡ LeadFlow CRM
         </div>
         <div style="font-size:0.75rem; color:#64748B; margin-top:3px; font-weight:500;">
-            Automated Lead Management
+            Smart Lead Tracking
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     # System status
-    smtp_ok = bool(os.getenv("GMAIL_USER") and os.getenv("GMAIL_PASSWORD"))
+    email_ok   = bool(os.getenv("RESEND_API_KEY"))
     tracker_ok = bool(os.getenv("TRACKER_BASE"))
 
-    smtp_html    = '<span class="dot-green"></span><span style="color:#94A3B8;font-size:0.78rem;">SMTP Connected</span>'    if smtp_ok    else '<span class="dot-red"></span><span style="color:#94A3B8;font-size:0.78rem;">SMTP Not Set</span>'
-    tracker_html = '<span class="dot-green"></span><span style="color:#94A3B8;font-size:0.78rem;">Tracker Active</span>'  if tracker_ok else '<span class="dot-red"></span><span style="color:#94A3B8;font-size:0.78rem;">Tracker Local</span>'
+    smtp_html    = '<span class="dot-green"></span><span style="color:#94A3B8;font-size:0.78rem;">Resend Connected</span>'  if email_ok   else '<span class="dot-red"></span><span style="color:#94A3B8;font-size:0.78rem;">Resend Not Set</span>'
+    tracker_html = '<span class="dot-green"></span><span style="color:#94A3B8;font-size:0.78rem;">Tracker Active</span>'   if tracker_ok else '<span class="dot-red"></span><span style="color:#94A3B8;font-size:0.78rem;">Tracker Local</span>'
 
     st.markdown(f"""
     <div style="padding:1.2rem 0 1rem 0; border-bottom:1px solid #1E293B;">
@@ -395,11 +397,11 @@ with st.sidebar:
                   letter-spacing:0.8px;margin:0 0 0.7rem 0;">Quick Stats</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div style="background:#1E293B;border-radius:10px;padding:10px 12px;">
-                <div style="font-size:1.3rem;font-weight:800;color:#A5B4FC;">{_s['total']}</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#93b4d4;">{_s['total']}</div>
                 <div style="font-size:0.68rem;color:#64748B;font-weight:600;">TOTAL LEADS</div>
             </div>
             <div style="background:#1E293B;border-radius:10px;padding:10px 12px;">
-                <div style="font-size:1.3rem;font-weight:800;color:#A5B4FC;">{_s['sent']}</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#93b4d4;">{_s['sent']}</div>
                 <div style="font-size:0.68rem;color:#64748B;font-weight:600;">EMAILS SENT</div>
             </div>
             <div style="background:#1E293B;border-radius:10px;padding:10px 12px;">
@@ -425,9 +427,20 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown("""
+    <div style="padding:1rem 0 0.5rem 0;border-top:1px solid #1E293B;margin-top:0.8rem;">
+        <p style="font-size:0.68rem;font-weight:700;color:#475569;text-transform:uppercase;
+                  letter-spacing:0.8px;margin:0 0 0.7rem 0;">Resources</p>
+        <a href="#" style="display:block;font-size:0.78rem;color:#64748B;margin:0 0 5px 0;text-decoration:none;">📄 &nbsp;Documentation</a>
+        <a href="#" style="display:block;font-size:0.78rem;color:#64748B;margin:0 0 5px 0;text-decoration:none;">💬 &nbsp;Support</a>
+        <a href="#" style="display:block;font-size:0.78rem;color:#64748B;margin:0 0 5px 0;text-decoration:none;">🔒 &nbsp;Privacy Policy</a>
+        <a href="#" style="display:block;font-size:0.78rem;color:#64748B;margin:0 0 0 0;text-decoration:none;">📋 &nbsp;Terms &amp; Conditions</a>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
     <div style="position:absolute;bottom:1rem;left:1.2rem;right:1.2rem;">
         <p style="font-size:0.7rem;color:#334155;text-align:center;margin:0;">
-            LeadFlow v1.0 &nbsp;·&nbsp; Built with Streamlit
+            LeadFlow CRM &nbsp;·&nbsp; v1.0.0
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -438,9 +451,9 @@ with st.sidebar:
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-    <div class="hero-badge">⚡ PRODUCTION READY</div>
-    <h1>LeadFlow Dashboard</h1>
-    <p>Automated lead capture · AI classification · Email tracking · Live analytics</p>
+    <div class="hero-badge">⚡ LeadFlow CRM</div>
+    <h1>LeadFlow CRM</h1>
+    <p>Smart lead capture · AI classification · Email tracking · Live analytics</p>
     <div class="hero-chips">
         <span class="hero-chip">🤖 AI Classification</span>
         <span class="hero-chip">📧 Email Tracking</span>
@@ -469,8 +482,11 @@ with tab1:
         st.markdown('<p class="sec-hdr">Submit a New Lead</p>', unsafe_allow_html=True)
 
         with st.form("lead_form", clear_on_submit=True):
-            name = st.text_input("Full Name *", placeholder="e.g. John Smith")
-            email = st.text_input("Email Address *", placeholder="e.g. john@company.com")
+            name_col, email_col = st.columns(2)
+            with name_col:
+                name = st.text_input("Full Name *", placeholder="e.g. John Smith")
+            with email_col:
+                email = st.text_input("Email Address *", placeholder="e.g. john@company.com")
             ph_col, co_col = st.columns(2)
             with ph_col:
                 phone = st.text_input("Phone Number *", placeholder="+1 555 000 0000")
@@ -647,8 +663,8 @@ with tab2:
         with c1:  # Leads Over Time
             daily = df.groupby("date").size().reset_index(name="Leads")
             fig = px.area(daily, x="date", y="Leads",
-                          color_discrete_sequence=["#4F46E5"], template="plotly_white")
-            fig.update_traces(fillcolor="rgba(79,70,229,0.10)", line_color="#4F46E5", line_width=2.2)
+                          color_discrete_sequence=["#1e3a5f"], template="plotly_white")
+            fig.update_traces(fillcolor="rgba(30,58,95,0.10)", line_color="#1e3a5f", line_width=2.2)
             fig.update_layout(title="Leads Submitted Over Time", **_chart_base())
             st.plotly_chart(fig, use_container_width=True)
 
@@ -738,7 +754,7 @@ with tab2:
         # ── Recent Activity Feed ─────────────────────────────────────────────
         st.markdown('<p class="sec-hdr">🕐  Recent Activity</p>', unsafe_allow_html=True)
         recent = leads_raw[:5]
-        _AVATAR_COLORS = ["#4F46E5", "#7C3AED", "#0EA5E9", "#10B981", "#F59E0B"]
+        _AVATAR_COLORS = ["#1e3a5f", "#f97316", "#0EA5E9", "#10B981", "#2d5282"]
         feed_items = []
         for i, lead in enumerate(recent):
             parts = lead["name"].strip().split()
@@ -876,8 +892,12 @@ with tab3:
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="app-footer">
-    ⚡ <strong>LeadFlow</strong> &nbsp;·&nbsp;
-    Built with Streamlit, Flask, SQLite &amp; Plotly &nbsp;·&nbsp;
-    Automated Lead Management &amp; Email Tracking System
+    &copy; 2025 <strong>LeadFlow CRM</strong>. All rights reserved.
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="#">Terms &amp; Conditions</a> &nbsp;|&nbsp;
+    <a href="#">Privacy Policy</a> &nbsp;|&nbsp;
+    <a href="#">Documentation</a> &nbsp;|&nbsp;
+    <a href="#">Support</a> &nbsp;|&nbsp;
+    <a href="#">Contact Us</a>
 </div>
 """, unsafe_allow_html=True)

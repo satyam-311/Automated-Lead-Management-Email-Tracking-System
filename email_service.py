@@ -1,16 +1,14 @@
-import smtplib
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from html import escape
-from dotenv import load_dotenv
 import os
+from html import escape
+
+import resend
+from dotenv import load_dotenv
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# ── Email template ────────────────────────────────────────────────────────────
 
 def _build_html(name: str, requirement: str, trackable_link: str,
                 email: str, tracking_pixel: str) -> str:
@@ -81,19 +79,18 @@ def _build_html(name: str, requirement: str, trackable_link: str,
 </html>"""
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
-
 def send_lead_email(lead_id: int, name: str, email: str, requirement: str) -> bool:
-    gmail_user     = os.getenv("GMAIL_USER", "").strip()
-    gmail_password = os.getenv("GMAIL_PASSWORD", "").strip()
-    tracker_base   = os.getenv("TRACKER_BASE", "http://localhost:5000").rstrip("/")
+    api_key      = os.getenv("RESEND_API_KEY", "").strip()
+    tracker_base = os.getenv("TRACKER_BASE", "http://localhost:5000").rstrip("/")
 
-    if not gmail_user or not gmail_password:
+    if not api_key:
         logger.warning(
-            "SMTP credentials not configured. Set GMAIL_USER and GMAIL_PASSWORD in .env. "
+            "RESEND_API_KEY not configured. Set it in .env. "
             "Lead id=%d email NOT sent.", lead_id
         )
         return False
+
+    resend.api_key = api_key
 
     trackable_link = f"{tracker_base}/click/{lead_id}"
     tracking_pixel = (
@@ -103,22 +100,15 @@ def send_lead_email(lead_id: int, name: str, email: str, requirement: str) -> bo
 
     html_body = _build_html(name, requirement, trackable_link, email, tracking_pixel)
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Thank you for reaching out, {name}!"
-    msg["From"]    = gmail_user
-    msg["To"]      = email
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
-            server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, email, msg.as_string())
-        logger.info("Email sent: lead_id=%d to=%s", lead_id, email)
+        resend.Emails.send({
+            "from":    "onboarding@resend.dev",
+            "to":      [email],
+            "subject": f"Thank you for reaching out, {name}!",
+            "html":    html_body,
+        })
+        logger.info("Email sent via Resend: lead_id=%d to=%s", lead_id, email)
         return True
-    except smtplib.SMTPAuthenticationError:
-        logger.error("SMTP authentication failed. Check GMAIL_USER / GMAIL_PASSWORD.")
-    except smtplib.SMTPRecipientsRefused:
-        logger.error("Recipient refused: %s", email)
     except Exception as exc:
-        logger.error("Email send error for lead_id=%d: %s", lead_id, exc)
-    return False
+        logger.error("Resend email error for lead_id=%d: %s", lead_id, exc)
+        return False
