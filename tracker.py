@@ -24,6 +24,18 @@ _PIXEL = (
 
 CLICK_REDIRECT_URL = os.getenv("CLICK_REDIRECT_URL", "https://github.com")
 
+# Initialise DB at module level so gunicorn picks it up (not just direct execution)
+try:
+    init_db()
+    logger.info("Database initialised by tracker")
+except Exception as _init_exc:
+    logger.error("DB init failed (tracker will still serve pixel): %s", _init_exc)
+
+
+@app.route("/")
+def index():
+    return jsonify({"status": "LeadFlow Tracker Running", "version": "1.0.0"}), 200
+
 
 @app.route("/open/<int:lead_id>")
 def track_open(lead_id: int):
@@ -55,7 +67,6 @@ def health():
 
 
 if __name__ == "__main__":
-    init_db()
     port = int(os.getenv("TRACKER_PORT", 5000))
     logger.info("Tracker server starting on port %d", port)
     app.run(host="0.0.0.0", port=port, debug=False)
