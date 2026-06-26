@@ -92,6 +92,10 @@ def send_lead_email(lead_id: int, name: str, email: str, requirement: str) -> bo
 
     resend.api_key = api_key
 
+    # onboarding@resend.dev can only deliver to the verified account owner's email.
+    # RESEND_TO_OVERRIDE lets demo/test deployments route all emails to one address.
+    to_address = os.getenv("RESEND_TO_OVERRIDE", "").strip() or email
+
     trackable_link = f"{tracker_base}/click/{lead_id}"
     tracking_pixel = (
         f'<img src="{tracker_base}/open/{lead_id}" '
@@ -103,12 +107,13 @@ def send_lead_email(lead_id: int, name: str, email: str, requirement: str) -> bo
     try:
         resend.Emails.send({
             "from":    "onboarding@resend.dev",
-            "to":      [email],
+            "to":      [to_address],
             "subject": f"Thank you for reaching out, {name}!",
             "html":    html_body,
         })
-        logger.info("Email sent via Resend: lead_id=%d to=%s", lead_id, email)
+        logger.info("Email sent via Resend: lead_id=%d to=%s (override=%s)",
+                    lead_id, to_address, bool(os.getenv("RESEND_TO_OVERRIDE")))
         return True
     except Exception as exc:
-        logger.error("Resend email error for lead_id=%d: %s", lead_id, exc)
+        logger.error("Resend error lead_id=%d to=%s: %s", lead_id, to_address, exc)
         return False
